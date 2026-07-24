@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
   ViewMode, 
   DashboardModule, 
@@ -8,31 +8,31 @@ import {
   UserProfile, 
   ToastMessage 
 } from '../types';
-import { 
-  INITIAL_USER_PROFILE, 
-  INITIAL_BRAND_PERSONA, 
-  INITIAL_GENERATED_POSTS, 
-  INITIAL_DRAFTS 
-} from '../data/mockData';
+import { INITIAL_USER_PROFILE, INITIAL_BRAND_PERSONA, INITIAL_GENERATED_POSTS, INITIAL_DRAFTS } from '../data/mockData';
 
 interface AppContextType {
   viewMode: ViewMode;
-  setViewMode: (view: ViewMode) => void;
+  setViewMode: (mode: ViewMode) => void;
   activeModule: DashboardModule;
   setActiveModule: (module: DashboardModule) => void;
+  isSimpleMode: boolean;
+  setIsSimpleMode: (simple: boolean) => void;
+  
+  // Post & Draft State
+  generatedPosts: GeneratedPost[];
+  addGeneratedPost: (post: GeneratedPost) => void;
+  drafts: DraftItem[];
+  saveAsDraft: (post: GeneratedPost, status?: 'Draft' | 'Scheduled') => void;
+  updateDraftStatus: (id: string, status: 'Draft' | 'Scheduled' | 'Published') => void;
+  deleteDraft: (id: string) => void;
+
+  // Profile & Persona State
   userProfile: UserProfile;
   setUserProfile: React.Dispatch<React.SetStateAction<UserProfile>>;
   brandPersona: BrandPersona;
   setBrandPersona: React.Dispatch<React.SetStateAction<BrandPersona>>;
-  generatedPosts: GeneratedPost[];
-  addGeneratedPost: (post: GeneratedPost) => void;
-  deleteGeneratedPost: (id: string) => void;
-  drafts: DraftItem[];
-  saveAsDraft: (post: GeneratedPost) => void;
-  deleteDraft: (id: string) => void;
-  updateDraftStatus: (id: string, status: DraftItem['status']) => void;
-  
-  // Modals & Toasts
+
+  // UI Modals & Actions
   previewPost: GeneratedPost | null;
   setPreviewPost: (post: GeneratedPost | null) => void;
   exportPost: GeneratedPost | null;
@@ -43,9 +43,10 @@ interface AppContextType {
   setIsOAuthOpen: (open: boolean) => void;
   isCmdPaletteOpen: boolean;
   setIsCmdPaletteOpen: (open: boolean) => void;
-  
+
+  // Toast System
   toasts: ToastMessage[];
-  addToast: (message: string, type?: ToastMessage['type']) => void;
+  addToast: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
   removeToast: (id: string) => void;
 }
 
@@ -54,12 +55,13 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('landing');
   const [activeModule, setActiveModule] = useState<DashboardModule>('generator');
-  
-  const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
-  const [brandPersona, setBrandPersona] = useState<BrandPersona>(INITIAL_BRAND_PERSONA);
+  const [isSimpleMode, setIsSimpleMode] = useState<boolean>(true); // Default to Clean Simple Mode!
+
   const [generatedPosts, setGeneratedPosts] = useState<GeneratedPost[]>(INITIAL_GENERATED_POSTS);
   const [drafts, setDrafts] = useState<DraftItem[]>(INITIAL_DRAFTS);
-  
+  const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
+  const [brandPersona, setBrandPersona] = useState<BrandPersona>(INITIAL_BRAND_PERSONA);
+
   const [previewPost, setPreviewPost] = useState<GeneratedPost | null>(null);
   const [exportPost, setExportPost] = useState<GeneratedPost | null>(null);
   const [publishPost, setPublishPost] = useState<GeneratedPost | null>(null);
@@ -67,88 +69,76 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isCmdPaletteOpen, setIsCmdPaletteOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const addToast = (message: string, type: ToastMessage['type'] = 'success') => {
-    const id = Math.random().toString(36).substring(2, 9);
-    setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      removeToast(id);
-    }, 4000);
+  const addToast = (message: string, type: 'success' | 'info' | 'warning' | 'error' = 'info') => {
+    const id = `toast-${Date.now()}`;
+    setToasts((prev) => [...prev, { id, type, message }]);
+    setTimeout(() => removeToast(id), 3500);
   };
 
   const removeToast = (id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
   const addGeneratedPost = (post: GeneratedPost) => {
-    setGeneratedPosts(prev => [post, ...prev]);
-    setUserProfile(prev => ({
-      ...prev,
-      tokensUsed: Math.min(prev.tokensTotal, prev.tokensUsed + 450)
-    }));
+    setGeneratedPosts((prev) => [post, ...prev]);
   };
 
-  const deleteGeneratedPost = (id: string) => {
-    setGeneratedPosts(prev => prev.filter(p => p.id !== id));
-    addToast('Post removed from history', 'info');
-  };
-
-  const saveAsDraft = (post: GeneratedPost) => {
-    const existing = drafts.find(d => d.id === post.id);
-    if (existing) {
-      addToast('Post is already in Saved Drafts', 'info');
-      return;
-    }
+  const saveAsDraft = (post: GeneratedPost, status: 'Draft' | 'Scheduled' = 'Draft') => {
     const newDraft: DraftItem = {
       ...post,
-      status: 'Draft',
-      notes: 'Saved from generator'
+      status,
+      scheduledDate: new Date().toISOString().split('T')[0],
     };
-    setDrafts(prev => [newDraft, ...prev]);
-    setGeneratedPosts(prev => prev.map(p => p.id === post.id ? { ...p, isSaved: true } : p));
-    addToast('Post saved to Drafts!', 'success');
+    setDrafts((prev) => [newDraft, ...prev.filter(d => d.id !== post.id)]);
+    addToast(`Post saved to ${status}s!`, 'success');
+  };
+
+  const updateDraftStatus = (id: string, status: 'Draft' | 'Scheduled' | 'Published') => {
+    setDrafts((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, status } : d))
+    );
+    addToast(`Updated status to ${status}`, 'info');
   };
 
   const deleteDraft = (id: string) => {
-    setDrafts(prev => prev.filter(d => d.id !== id));
+    setDrafts((prev) => prev.filter((d) => d.id !== id));
     addToast('Draft deleted', 'info');
   };
 
-  const updateDraftStatus = (id: string, status: DraftItem['status']) => {
-    setDrafts(prev => prev.map(d => d.id === id ? { ...d, status } : d));
-    addToast(`Draft status updated to ${status}`, 'success');
-  };
-
   return (
-    <AppContext.Provider value={{
-      viewMode,
-      setViewMode,
-      activeModule,
-      setActiveModule,
-      userProfile,
-      setUserProfile,
-      brandPersona,
-      setBrandPersona,
-      generatedPosts,
-      addGeneratedPost,
-      deleteGeneratedPost,
-      drafts,
-      saveAsDraft,
-      deleteDraft,
-      updateDraftStatus,
-      previewPost,
-      setPreviewPost,
-      exportPost,
-      setExportPost,
-      publishPost,
-      setPublishPost,
-      isOAuthOpen,
-      setIsOAuthOpen,
-      isCmdPaletteOpen,
-      setIsCmdPaletteOpen,
-      toasts,
-      addToast,
-      removeToast,
-    }}>
+    <AppContext.Provider
+      value={{
+        viewMode,
+        setViewMode,
+        activeModule,
+        setActiveModule,
+        isSimpleMode,
+        setIsSimpleMode,
+        generatedPosts,
+        addGeneratedPost,
+        drafts,
+        saveAsDraft,
+        updateDraftStatus,
+        deleteDraft,
+        userProfile,
+        setUserProfile,
+        brandPersona,
+        setBrandPersona,
+        previewPost,
+        setPreviewPost,
+        exportPost,
+        setExportPost,
+        publishPost,
+        setPublishPost,
+        isOAuthOpen,
+        setIsOAuthOpen,
+        isCmdPaletteOpen,
+        setIsCmdPaletteOpen,
+        toasts,
+        addToast,
+        removeToast,
+      }}
+    >
       {children}
     </AppContext.Provider>
   );
