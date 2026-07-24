@@ -36,6 +36,7 @@ import { SavedDrafts } from './components/dashboard/modules/SavedDrafts';
 import { AnalyticsDashboard } from './components/dashboard/modules/AnalyticsDashboard';
 import { BrandVoiceSettings } from './components/dashboard/modules/BrandVoiceSettings';
 import { UserProfileSettings } from './components/dashboard/modules/UserProfileSettings';
+import { DatabaseInspector } from './components/dashboard/modules/DatabaseInspector';
 
 const MainContent: React.FC = () => {
   const { viewMode, activeModule, isOAuthOpen, setIsOAuthOpen, publishPost, setPublishPost } = useApp();
@@ -81,6 +82,8 @@ const MainContent: React.FC = () => {
         return <BrandVoiceSettings />;
       case 'settings':
         return <UserProfileSettings />;
+      case 'database':
+        return <DatabaseInspector />;
       default:
         return <PostGenerator />;
     }

@@ -8,7 +8,8 @@ export type DashboardModule =
   | 'drafts' 
   | 'analytics' 
   | 'brand-voice' 
-  | 'settings';
+  | 'settings'
+  | 'database';
 
 export type AudienceType = 
   | 'Founders & C-Suite' 

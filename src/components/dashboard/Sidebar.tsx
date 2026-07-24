@@ -10,13 +10,9 @@ import {
   BarChart3, 
   UserCheck, 
   Settings,
-  ChevronLeft,
-  ChevronRight,
-  LogOut,
-  Sliders,
-  Check
+  Database,
+  LogOut
 } from 'lucide-react';
-import { Badge } from '../ui/Badge';
 
 export const Sidebar: React.FC = () => {
   const { activeModule, setActiveModule, setViewMode, userProfile, isSimpleMode, setIsSimpleMode } = useApp();
@@ -25,6 +21,7 @@ export const Sidebar: React.FC = () => {
     { id: 'generator', label: '✍️ Create & Write', icon: <Sparkles className="w-4 h-4 text-brand-indigo" /> },
     { id: 'analyzer', label: '🔍 Check Quality', icon: <SearchCheck className="w-4 h-4 text-brand-blue" /> },
     { id: 'drafts', label: '📅 Saved Calendar', icon: <FolderKanban className="w-4 h-4 text-emerald-500" /> },
+    { id: 'database', label: '🗄️ Database Explorer', icon: <Database className="w-4 h-4 text-amber-500" /> },
   ];
 
   const advancedNavItems: Array<{ id: DashboardModule; label: string; icon: React.ReactNode }> = [
@@ -34,6 +31,7 @@ export const Sidebar: React.FC = () => {
     { id: 'history', label: 'Generation History', icon: <History className="w-4 h-4 text-amber-500" /> },
     { id: 'drafts', label: 'Saved Drafts & Planner', icon: <FolderKanban className="w-4 h-4 text-emerald-500" /> },
     { id: 'analytics', label: 'Analytics Dashboard', icon: <BarChart3 className="w-4 h-4 text-rose-500" /> },
+    { id: 'database', label: 'Database Explorer', icon: <Database className="w-4 h-4 text-amber-500" /> },
     { id: 'brand-voice', label: 'Brand Voice Persona', icon: <UserCheck className="w-4 h-4 text-indigo-400" /> },
     { id: 'settings', label: 'Profile & Settings', icon: <Settings className="w-4 h-4 text-slate-400" /> },
   ];
