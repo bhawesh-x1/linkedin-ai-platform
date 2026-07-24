@@ -9,6 +9,7 @@ import {
   ToastMessage 
 } from '../types';
 import { INITIAL_USER_PROFILE, INITIAL_BRAND_PERSONA, INITIAL_GENERATED_POSTS, INITIAL_DRAFTS } from '../data/mockData';
+import { DatabaseService } from '../services/database';
 
 interface AppContextType {
   viewMode: ViewMode;
@@ -18,6 +19,9 @@ interface AppContextType {
   isSimpleMode: boolean;
   setIsSimpleMode: (simple: boolean) => void;
   
+  // Database Connection Status
+  isDatabaseConnected: boolean;
+
   // Post & Draft State
   generatedPosts: GeneratedPost[];
   addGeneratedPost: (post: GeneratedPost) => void;
@@ -55,12 +59,21 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('landing');
   const [activeModule, setActiveModule] = useState<DashboardModule>('generator');
-  const [isSimpleMode, setIsSimpleMode] = useState<boolean>(true); // Default to Clean Simple Mode!
+  const [isSimpleMode, setIsSimpleMode] = useState<boolean>(true);
 
-  const [generatedPosts, setGeneratedPosts] = useState<GeneratedPost[]>(INITIAL_GENERATED_POSTS);
-  const [drafts, setDrafts] = useState<DraftItem[]>(INITIAL_DRAFTS);
-  const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
-  const [brandPersona, setBrandPersona] = useState<BrandPersona>(INITIAL_BRAND_PERSONA);
+  // Initialize State from Database Service
+  const [generatedPosts, setGeneratedPosts] = useState<GeneratedPost[]>(() => 
+    DatabaseService.getPosts(INITIAL_GENERATED_POSTS)
+  );
+  const [drafts, setDrafts] = useState<DraftItem[]>(() => 
+    DatabaseService.getDrafts(INITIAL_DRAFTS)
+  );
+  const [userProfile, setUserProfile] = useState<UserProfile>(() => 
+    DatabaseService.getProfile(INITIAL_USER_PROFILE)
+  );
+  const [brandPersona, setBrandPersona] = useState<BrandPersona>(() => 
+    DatabaseService.getPersona(INITIAL_BRAND_PERSONA)
+  );
 
   const [previewPost, setPreviewPost] = useState<GeneratedPost | null>(null);
   const [exportPost, setExportPost] = useState<GeneratedPost | null>(null);
@@ -68,6 +81,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isOAuthOpen, setIsOAuthOpen] = useState(false);
   const [isCmdPaletteOpen, setIsCmdPaletteOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  // Automatically sync with Database Service on changes
+  useEffect(() => {
+    DatabaseService.savePosts(generatedPosts);
+  }, [generatedPosts]);
+
+  useEffect(() => {
+    DatabaseService.saveDrafts(drafts);
+  }, [drafts]);
+
+  useEffect(() => {
+    DatabaseService.saveProfile(userProfile);
+  }, [userProfile]);
+
+  useEffect(() => {
+    DatabaseService.savePersona(brandPersona);
+  }, [brandPersona]);
 
   const addToast = (message: string, type: 'success' | 'info' | 'warning' | 'error' = 'info') => {
     const id = `toast-${Date.now()}`;
@@ -90,19 +120,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       scheduledDate: new Date().toISOString().split('T')[0],
     };
     setDrafts((prev) => [newDraft, ...prev.filter(d => d.id !== post.id)]);
-    addToast(`Post saved to ${status}s!`, 'success');
+    addToast(`Saved to database (${status}s)!`, 'success');
   };
 
   const updateDraftStatus = (id: string, status: 'Draft' | 'Scheduled' | 'Published') => {
     setDrafts((prev) =>
       prev.map((d) => (d.id === id ? { ...d, status } : d))
     );
-    addToast(`Updated status to ${status}`, 'info');
+    addToast(`Database updated status to ${status}`, 'info');
   };
 
   const deleteDraft = (id: string) => {
     setDrafts((prev) => prev.filter((d) => d.id !== id));
-    addToast('Draft deleted', 'info');
+    addToast('Removed from database', 'info');
   };
 
   return (
@@ -114,6 +144,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveModule,
         isSimpleMode,
         setIsSimpleMode,
+        isDatabaseConnected: DatabaseService.isConnected(),
         generatedPosts,
         addGeneratedPost,
         drafts,
